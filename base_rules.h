@@ -102,6 +102,34 @@ namespace wraith
 		return weak_rule<Range>{t};
 	}
 
+	template<typename T, typename Producer>
+	class lambda_rule_with_producer
+	{
+	public:
+		lambda_rule_with_producer(T &t, Producer &p) : _t(t), _p(p) {}
+
+		template<typename Range>
+		bool operator() (Range &range) const
+		{
+			return _t(range, empty_consumer{}, _p);
+		}
+
+		template<typename Range, typename Consumer>
+		bool operator() (Range &range, Consumer& consumer) const
+		{
+			return _t(range, consumer, _p);
+		}
+
+		template<typename Range, typename Consumer, typename Producer>
+		bool operator() (Range &range, Consumer& consumer, Producer& producer) const
+		{
+			return _t(range, consumer, producer);
+		}
+	protected:
+		T _t;
+		Producer _p;
+	};
+
 	template<typename T>
 	class lambda_rule
 	{
@@ -117,13 +145,19 @@ namespace wraith
 		template<typename Range, typename Consumer>
 		bool operator() (Range &range, Consumer& consumer) const
 		{
-			return _t(range, consumer, empty_producer{});
+			return _t(range, consumer);
 		}
 
 		template<typename Range, typename Consumer, typename Producer>
 		bool operator() (Range &range, Consumer& consumer, Producer& producer) const
 		{
 			return _t(range, consumer, producer);
+		}
+
+		template<typename Producer>
+		auto operator[] (Producer &p)
+		{
+			return lambda_rule_with_producer<T, Producer>{_t, p};
 		}
 	protected:
 		T _t;

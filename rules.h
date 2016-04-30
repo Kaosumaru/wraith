@@ -13,7 +13,7 @@ namespace wraith
 	template<typename T>
 	auto literal(T &&t)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = empty_producer{})
 		{
 			if (done(range) || get(range) != t)
 				return false;
@@ -27,7 +27,7 @@ namespace wraith
 	template<typename T>
 	auto character(T &&t)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = identity_producer<char>{})
 		{
 			if (done(range))
 				return false;
@@ -36,7 +36,10 @@ namespace wraith
 			if (c != t)
 				return false;
 
-			consumer(c);
+			auto &&product = producer();
+			consume(product, c);
+			consumer(final_product(product));
+
 			increment(range);
 			return true;
 		});
@@ -45,16 +48,16 @@ namespace wraith
 	template<typename R1, typename R2>
 	auto or (R1 &&r1, R2 &&r2)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = empty_producer{})
 		{
-			return r1(range) || r2(range);
+			return r1(range, consumer) || r2(range, consumer);
 		});
 	}
 
 	template<typename R>
 	auto X_or_more(std::size_t x, R &&r)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = empty_producer{})
 		{
 			auto &&product = producer();
 			auto product_consumer = [&](auto &v) { consume(product, v); };
@@ -75,11 +78,11 @@ namespace wraith
 	template<typename R1, typename R2>
 	auto must_follow(R1 &&r1, R2 &&r2, const char* error)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = empty_producer{})
 		{
-			if (!r1(range))
+			if (!r1(range, consumer))
 				return false;
-			if (!r2(range))
+			if (!r2(range, consumer))
 				throw parsing_error{ error };
 			return true;
 		});
@@ -88,14 +91,18 @@ namespace wraith
 	template<typename R1, typename R2>
 	auto follow(R1 &&r1, R2 &&r2)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = empty_producer{})
 		{
+			auto &&product = producer();
+			auto product_consumer = [&](auto &v) { consume(product, v); };
+
 			auto temp_range = range;
-			if (!r1(temp_range))
+			if (!r1(temp_range, product_consumer))
 				return false;
-			if (!r2(temp_range))
+			if (!r2(temp_range, product_consumer))
 				return false;
 			range = temp_range;
+			consumer(final_product(product)); //forward final product to consumer
 			return true;
 		});
 	}

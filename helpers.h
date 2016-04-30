@@ -3,6 +3,7 @@
 #include <sstream>
 #include <utility>
 #include <tuple>
+#include <vector>
 
 namespace wraith
 {
@@ -39,13 +40,35 @@ namespace wraith
 		}
 	};
 
-	struct string_producer
+	template<typename T>
+	struct identity_producer
 	{
 		auto operator() () const
 		{
-			return std::make_tuple(std::stringstream{},
-				[](std::stringstream& v, auto& c) { v << c; },
-				[](std::stringstream& v) { return v.str(); });
+			return std::make_tuple(T{}, [](T &v, auto &c) { v = c; }, [](T &v) { return v; });
+		}
+	};
+
+	struct string_producer
+	{
+		using Type = std::stringstream;
+		auto operator() () const
+		{
+			return std::make_tuple(Type{},
+				[](Type& v, auto& c) { v << c; },
+				[](Type& v) { return v.str(); });
+		}
+	};
+
+	template<typename T>
+	struct vector_producer
+	{
+		using Type = std::vector<T>;
+		auto operator() () const
+		{
+			return std::make_tuple(Type{},
+				[](Type& v, auto& c) { v.push_back(c); },
+				[](Type& v) { return v; });
 		}
 	};
 
