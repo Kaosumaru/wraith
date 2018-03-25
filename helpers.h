@@ -45,7 +45,7 @@ namespace wraith
 	{
 		auto operator() () const
 		{
-			return std::make_tuple(T{}, [](T &v, auto &c) { v = c; }, [](T &v) { return v; });
+			return std::make_tuple(T{}, [](T &v, auto &c) { v = c; }, [](T &v) ->T& { return v; });
 		}
 	};
 
@@ -55,7 +55,7 @@ namespace wraith
 		auto operator() () const
 		{
 			return std::make_tuple(Type{},
-				[](Type& v, auto& c) { v << c; },
+				[](Type& v, auto&& c) { v << c; },
 				[](Type& v) { return v.str(); });
 		}
 	};
@@ -74,7 +74,7 @@ namespace wraith
 
 
 	template<typename Producer, typename Value>
-	void consume(Producer&& p, Value&& v)
+	void apply_to_product(Producer&& p, Value&& v)
 	{
 		auto &halfproduct = std::get<0>(p);
 		auto &consumer = std::get<1>(p);
@@ -82,7 +82,7 @@ namespace wraith
 	}
 
 	template<typename Producer>
-	auto final_product(Producer&& p)
+	auto final_product(Producer&& p) //TODO forwarding return type
 	{
 		auto &halfproduct = std::get<0>(p);
 		auto &finalize = std::get<2>(p);

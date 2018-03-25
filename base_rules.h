@@ -125,6 +125,12 @@ namespace wraith
 		{
 			return _t(range, consumer, producer);
 		}
+
+		template<typename Producer>
+		auto operator[] (Producer &p)
+		{
+			return lambda_rule_with_producer<T, Producer>{_t, p};
+		}
 	protected:
 		T _t;
 		Producer _p;
@@ -145,7 +151,7 @@ namespace wraith
 		template<typename Range, typename Consumer>
 		bool operator() (Range &range, Consumer& consumer) const
 		{
-			return _t(range, consumer);
+			return _t(range, consumer, empty_producer{});
 		}
 
 		template<typename Range, typename Consumer, typename Producer>
@@ -167,6 +173,12 @@ namespace wraith
 	auto make_lambda_rule(T &&t)
 	{
 		return lambda_rule<T>{std::forward<T>(t)};
+	}
+
+	template<typename T, typename Producer>
+	auto make_lambda_rule(T &&t, Producer &p)
+	{
+		return lambda_rule_with_producer<T, Producer>{std::forward<T>(t), p};
 	}
 
 

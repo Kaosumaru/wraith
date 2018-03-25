@@ -13,7 +13,7 @@ namespace wraith
 	template<typename T>
 	auto literal(T &&t)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = empty_producer{})
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
 		{
 			if (done(range) || get(range) != t)
 				return false;
@@ -27,7 +27,7 @@ namespace wraith
 	template<typename T>
 	auto character(T &&t)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = identity_producer<char>{})
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
 		{
 			if (done(range))
 				return false;
@@ -37,30 +37,48 @@ namespace wraith
 				return false;
 
 			auto &&product = producer();
-			consume(product, c);
+			apply_to_product(product, c);
+
 			consumer(final_product(product));
 
 			increment(range);
 			return true;
-		});
+		}, identity_producer<char>{});
 	}
 
 	template<typename R1, typename R2>
 	auto or (R1 &&r1, R2 &&r2)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = empty_producer{})
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
 		{
-			return r1(range, consumer) || r2(range, consumer);
+			auto &&product = producer();
+			auto product_consumer = [&](auto &&v) { apply_to_product(product, v); }; //TODO forwarding
+
+			auto res1 = r1(range, product_consumer);
+			if (res1)
+			{
+				consumer(final_product(product)); //forward final product to consumer
+				return true;
+			}
+
+			auto res2 = r2(range, product_consumer);
+			if (res2)
+			{
+				consumer(final_product(product)); //forward final product to consumer
+				return true;
+			}
+
+			return false;
 		});
 	}
 
 	template<typename R>
 	auto X_or_more(std::size_t x, R &&r)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = empty_producer{})
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
 		{
 			auto &&product = producer();
-			auto product_consumer = [&](auto &v) { consume(product, v); };
+			auto product_consumer = [&](auto &&v) { apply_to_product(product, v); }; //TODO forwarding
 
 			auto temp_range = range;
 			std::size_t c = 0;
@@ -78,7 +96,7 @@ namespace wraith
 	template<typename R1, typename R2>
 	auto must_follow(R1 &&r1, R2 &&r2, const char* error)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = empty_producer{})
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
 		{
 			if (!r1(range, consumer))
 				return false;
@@ -91,10 +109,10 @@ namespace wraith
 	template<typename R1, typename R2>
 	auto follow(R1 &&r1, R2 &&r2)
 	{
-		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer = empty_producer{})
+		return make_lambda_rule([=](auto& range, auto& consumer, auto& producer)
 		{
 			auto &&product = producer();
-			auto product_consumer = [&](auto &v) { consume(product, v); };
+			auto product_consumer = [&](auto &&v) { apply_to_product(product, v); };
 
 			auto temp_range = range;
 			if (!r1(temp_range, product_consumer))
