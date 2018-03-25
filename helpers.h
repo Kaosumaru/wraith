@@ -3,6 +3,7 @@
 #include <sstream>
 #include <utility>
 #include <tuple>
+#include "rule.h"
 
 namespace wraith
 {
@@ -24,50 +25,51 @@ namespace wraith
 		t++;
 	}
 
-
-	struct empty_consumer
+	namespace detail
 	{
+		template<typename T1, typename T2>
+		struct TwoTypes_h
+		{
+			using type = std::pair<T1, T2>;
+		};
+
+		template<>
+		struct TwoTypes_h<empty, empty>
+		{
+			using type = empty;
+		};
+
 		template<typename T>
-		void operator() (T&& t)	 const { }
-	};
-
-	struct empty_producer
-	{
-		auto operator() () const
+		struct TwoTypes_h<T, empty>
 		{
-			return std::make_tuple(int{}, [](int &v, auto &c) {}, [](int &v) { return v; });
-		}
-	};
+			using type = T;
+		};
 
-	struct string_producer
-	{
-		auto operator() () const
+		template<typename T>
+		struct TwoTypes_h<empty, T>
 		{
-			return std::make_tuple(std::stringstream{},
-				[](std::stringstream& v, auto& c) { v << c; },
-				[](std::stringstream& v) { return v.str(); });
+			using type = T;
+		};
+
+		template<typename T1, typename T2>
+		using TwoTypes = typename TwoTypes_h<T1, T2>::type;
+
+		template<typename Consumer, typename Product1, typename Product2>
+		void ConsumeNonEmpty(Consumer& consumer, std::pair<Product1, Product2>& result)
+		{
+			if constexpr (std::is_same_v<Product1, empty> && std::is_same_v<Product2, empty>) {
+
+			}
+			else if constexpr (!std::is_same_v<Product1, empty> && !std::is_same_v<Product2, empty>) {
+				consumer(std::move(result));
+			}
+			else if constexpr (!std::is_same_v<Product1, empty>) {
+				consumer(std::move(result.first));
+			}
+			else if constexpr (!std::is_same_v<Product2, empty>) {
+				consumer(std::move(result.second));
+			}
 		}
-	};
-
-
-	template<typename Producer, typename Value>
-	void consume(Producer&& p, Value&& v)
-	{
-		auto &halfproduct = std::get<0>(p);
-		auto &consumer = std::get<1>(p);
-		consumer(halfproduct, std::forward<Value>(v));
 	}
 
-	template<typename Producer>
-	auto final_product(Producer&& p)
-	{
-		auto &halfproduct = std::get<0>(p);
-		auto &finalize = std::get<2>(p);
-		return finalize(halfproduct);
-	}
-
-	struct parsing_error : public std::logic_error
-	{
-		using logic_error::logic_error;
-	};
 }
